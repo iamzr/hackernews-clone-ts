@@ -1,6 +1,4 @@
-import { isDefinitionNode } from "graphql";
-import {extendType, nonNull, objectType, stringArg} from "nexus";
-import { NexusGenObjects } from "../../nexus-typegen";
+import {arg, extendType, nonNull, objectType, stringArg} from "nexus";
 
 export const Link = objectType({
     name: "Link",
@@ -8,21 +6,16 @@ export const Link = objectType({
         t.nonNull.int("id");
         t.nonNull.string("description");
         t.nonNull.string("url");
+        t.field("postedBy", {   // 1
+            type: "User",
+            resolve(parent, args, context) {  // 2
+                return context.prisma.link
+                    .findUnique({ where: { id: parent.id } })
+                    .postedBy();
+            },
+        });
     },
 });
-
-let links: NexusGenObjects["Link"][] = [
-    {
-        id: 1,
-        url: "www.howtographql.com",
-        description:"Fullstack tutorial on GraphQL"
-    },
-    {
-        id: 2,
-        url: "graphql.org",
-        description: "Fullstack tutorial for GraphQL"
-    }
-]
 
 export const LinkQuery = extendType({
     type: "Query",
@@ -30,7 +23,7 @@ export const LinkQuery = extendType({
         t.nonNull.list.nonNull.field("feed", {
             type: "Link",
             resolve(parent, args, context, info) {
-                return links;
+                return context.prisma.link.findMany();
             }
         })
     }
@@ -47,17 +40,14 @@ export const LinkMutation = extendType({
             },
 
             resolve(parent, args, context) {
-                const {description, url} = args;
+                const newLink = context.prisma.link.create({
+                    data: {
+                        description: args.description,
+                        url: args.url
+                    }
+                })
 
-                let idCount = links.length + 1;
-                const link = {
-                    id: idCount,
-                    description,
-                    url,
-                };
-
-                links.push(link);
-                return link;
+                return newLink
             }
         })
     }
